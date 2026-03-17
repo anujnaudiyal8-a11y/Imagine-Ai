@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b1020" />
+    <meta name="description" content="Imagine AI creates premium AI images from your prompts in seconds." />
+    <title>Imagine AI</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/assets/logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="page-shell">
+      <header class="topbar glass">
+        <div class="brand">
+          <img src="/assets/logo.svg" alt="Imagine AI logo" class="brand-logo" />
+          <div>
+            <p class="brand-kicker">AI IMAGE GENERATOR</p>
+            <h1>Imagine AI</h1>
+          </div>
+        </div>
+        <a class="ghost-btn" href="#workspace">Start Creating</a>
+      </header>
+
+      <section class="hero glass">
+        <div class="hero-copy">
+          <span class="pill">Create. Refine. Download.</span>
+          <h2>Turn your words into scroll-stopping visuals.</h2>
+          <p>
+            Premium prompts, beautiful styles, instant previews, and one-click downloads — all in one clean app.
+          </p>
+          <div class="hero-stats">
+            <div><strong>4</strong><span>ratios</span></div>
+            <div><strong>6</strong><span>styles</span></div>
+            <div><strong>Fast</strong><span>generation</span></div>
+          </div>
+        </div>
+        <div class="hero-card">
+          <div class="mini-preview">
+            <div class="mini-badge">Trending Prompt</div>
+            <p>"A futuristic Mumbai skyline above monsoon clouds, neon reflections, cinematic lighting."</p>
+          </div>
+        </div>
+      </section>
+
+      <main id="workspace" class="workspace">
+        <section class="panel glass form-panel">
+          <div class="panel-title-row">
+            <div>
+              <p class="section-kicker">PROMPT STUDIO</p>
+              <h3>Create your next visual</h3>
+            </div>
+            <button id="randomBtn" class="ghost-btn" type="button">Random idea</button>
+          </div>
+
+          <label class="label" for="title">Project title</label>
+          <input id="title" class="input" placeholder="Ex: Neon Tiger Campaign" />
+
+          <label class="label" for="description">Prompt</label>
+          <textarea
+            id="description"
+            class="input textarea"
+            rows="7"
+            placeholder="Describe the scene, camera feel, subject, environment, details, lighting, and vibe..."
+          ></textarea>
+
+          <div class="preset-block">
+            <div class="label-row">
+              <span class="label">Quick ideas</span>
+              <button id="clearBtn" class="tiny-btn" type="button">Clear</button>
+            </div>
+            <div class="chips" id="ideaList">
+              <button class="chip" type="button">A cyberpunk lion made of liquid chrome in a rainy neon alley</button>
+              <button class="chip" type="button">Luxury perfume bottle floating in cosmic smoke with gold particles</button>
+              <button class="chip" type="button">A goddess made of galaxies standing above glowing mountains</button>
+              <button class="chip" type="button">Hyperreal sneaker ad shot on a glass floor with blue lighting</button>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div>
+              <label class="label">Mood</label>
+              <div class="chips selectable" id="moodRow">
+                <button class="chip active" data-value="Dreamy" type="button">Dreamy</button>
+                <button class="chip" data-value="Bold" type="button">Bold</button>
+                <button class="chip" data-value="Moody" type="button">Moody</button>
+                <button class="chip" data-value="Luxury" type="button">Luxury</button>
+              </div>
+            </div>
+            <div>
+              <label class="label">Style</label>
+              <div class="chips selectable" id="styleRow">
+                <button class="chip active" data-value="Cinematic" type="button">Cinematic</button>
+                <button class="chip" data-value="Photoreal" type="button">Photoreal</button>
+                <button class="chip" data-value="Anime" type="button">Anime</button>
+                <button class="chip" data-value="3D Render" type="button">3D Render</button>
+                <button class="chip" data-value="Fantasy" type="button">Fantasy</button>
+                <button class="chip" data-value="Editorial" type="button">Editorial</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid-2 compact-top">
+            <div>
+              <label class="label" for="ratio">Aspect ratio</label>
+              <select id="ratio" class="input select">
+                <option value="1:1">Square (1:1)</option>
+                <option value="16:9">Landscape (16:9)</option>
+                <option value="9:16">Portrait (9:16)</option>
+                <option value="4:5">Post (4:5)</option>
+              </select>
+            </div>
+            <div>
+              <label class="label" for="nameInput">Creator name</label>
+              <input id="nameInput" class="input" placeholder="Optional watermark name for downloads" />
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="generateBtn" class="primary-btn" type="button">Generate image</button>
+            <button id="downloadBtn" class="ghost-btn" type="button" disabled>Download</button>
+          </div>
+          <p id="status" class="status">Ready to generate.</p>
+        </section>
+
+        <section class="panel glass output-panel">
+          <div class="panel-title-row">
+            <div>
+              <p class="section-kicker">OUTPUT</p>
+              <h3>Generated result</h3>
+            </div>
+            <div class="output-tags">
+              <span id="moodTag" class="tag">Dreamy</span>
+              <span id="styleTag" class="tag alt">Cinematic</span>
+            </div>
+          </div>
+
+          <div id="imageStage" class="image-stage empty">
+            <div class="empty-state">
+              <img src="/assets/logo.svg" alt="Imagine AI mark" class="empty-logo" />
+              <p>Your image will appear here after generation.</p>
+            </div>
+          </div>
+
+          <div class="history-head">
+            <span class="label">Recent creations</span>
+            <button id="clearHistoryBtn" class="tiny-btn" type="button">Clear history</button>
+          </div>
+          <div id="history" class="history"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/script.js"></script>
+  </body>
+</html>
