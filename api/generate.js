@@ -4,10 +4,26 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt, negativePrompt } = req.body || {};
+    const rawBody = req.body || {};
 
-    if (!prompt) {
-      return res.status(400).json({ error: "Prompt required" });
+    const prompt =
+      rawBody.prompt ||
+      rawBody.userPrompt ||
+      rawBody?.body?.prompt ||
+      "";
+
+    const negativePrompt =
+      rawBody.negativePrompt ||
+      rawBody.negative_prompt ||
+      "";
+
+    if (!prompt || !String(prompt).trim()) {
+      return res.status(400).json({
+        error: "Prompt required",
+        debug: {
+          receivedBody: rawBody
+        }
+      });
     }
 
     const model = "ByteDance/SDXL-Lightning";
@@ -21,9 +37,9 @@ export default async function handler(req, res) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          inputs: prompt,
+          inputs: String(prompt).trim(),
           parameters: {
-            negative_prompt: negativePrompt || ""
+            negative_prompt: String(negativePrompt || "")
           }
         })
       }
@@ -32,21 +48,21 @@ export default async function handler(req, res) {
     if (!hfResponse.ok) {
       const errText = await hfResponse.text();
       console.error("HF error:", errText);
-      return res.status(500).json({ error: errText });
+      return res.status(hfResponse.status).json({
+        error: errText || "Hugging Face API error"
+      });
     }
 
-    const blob = await hfResponse.blob();
-    const arrayBuffer = await blob.arrayBuffer();
+    const arrayBuffer = await hfResponse.arrayBuffer();
     const base64Image = Buffer.from(arrayBuffer).toString("base64");
 
     return res.status(200).json({
       image: `data:image/png;base64,${base64Image}`
     });
-
   } catch (error) {
     console.error("Generate error:", error);
     return res.status(500).json({
-      error: "Image generate error"
+      error: error.message || "Image generate error"
     });
   }
-        }
+      }
