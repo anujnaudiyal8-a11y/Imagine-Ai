@@ -65,4 +65,4 @@ export default async function handler(req, res) {
       error: error.message || "Image generate error"
     });
   }
-      }
+    }
