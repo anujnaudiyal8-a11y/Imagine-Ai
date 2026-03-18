@@ -28,22 +28,27 @@ function buildPrompt(userPrompt, style = "photoreal") {
 
 async function generateImage() {
   const promptInput = document.getElementById("prompt");
-  const styleInput = document.getElementById("style");
   const imageEl = document.getElementById("result");
+  const styleInput = document.getElementById("style");
 
-  const userPrompt = promptInput.value.trim();
-  const style = styleInput?.value || "photoreal";
+  const userPrompt = promptInput ? promptInput.value.trim() : "";
+  const style = styleInput ? styleInput.value : "photoreal";
 
   if (!userPrompt) {
     alert("Prompt likho pehle");
     return;
   }
 
-  const { prompt, negativePrompt } = buildPrompt(userPrompt, style);
+  let prompt = userPrompt;
+  let negativePrompt = "";
+
+  if (typeof buildPrompt === "function") {
+    const built = buildPrompt(userPrompt, style);
+    prompt = built.prompt;
+    negativePrompt = built.negativePrompt;
+  }
 
   try {
-    imageEl.src = "";
-    
     const res = await fetch("/api/generate", {
       method: "POST",
       headers: {
@@ -51,19 +56,25 @@ async function generateImage() {
       },
       body: JSON.stringify({
         prompt,
+        userPrompt,
         negativePrompt,
         style
       })
     });
 
     const data = await res.json();
+    console.log("API response:", data);
+
+    if (!res.ok) {
+      alert(data.error || "Generate failed");
+      return;
+    }
 
     if (data.image) {
       imageEl.src = data.image;
     } else {
       alert("Image generate nahi hui");
     }
-
   } catch (err) {
     console.error(err);
     alert("Error aaya");
