@@ -51,7 +51,8 @@ export default async function handler(req, res) {
 
     if (provider === "huggingface") {
       const key = process.env.HUGGINGFACE_API_KEY;
-      const model = process.env.HF_IMAGE_MODEL || "black-forest-labs/FLUX.1-dev";
+      
+      const model = process.env.HF_IMAGE_MODEL || "stabilityai/stable-diffusion-xl-base-1.0";
       const { width, height } = ratioToSize(ratio);
       const response = await fetch(`https://router.huggingface.co/hf-inference/models/${model}`, {
         method: "POST",
