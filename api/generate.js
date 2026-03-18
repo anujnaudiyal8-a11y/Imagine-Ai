@@ -1,68 +1,132 @@
+const inferProvider = () => {
+  if (process.env.MODEL_PROVIDER) return process.env.MODEL_PROVIDER;
+  if (process.env.HUGGINGFACE_API_KEY) return "huggingface";
+  if (process.env.OPENAI_API_KEY) return "openai";
+  return "none";
+};
+
+const ratioToSize = (ratio) => {
+  switch (ratio) {
+    case "16:9":
+      return { width: 1344, height: 768, size: "1536x1024" };
+    case "9:16":
+      return { width: 768, height: 1344, size: "1024x1536" };
+    case "4:5":
+      return { width: 896, height: 1120, size: "1024x1024" };
+    default:
+      return { width: 1024, height: 1024, size: "1024x1024" };
+  }
+};
+
+const buildPrompt = ({ title, description, mood, style }) =>
+  [
+    title ? `Concept title: ${title}.` : "",
+    `Generate one premium-quality AI artwork in ${style.toLowerCase()} style with a ${mood.toLowerCase()} mood.`,
+    `Prompt: ${description.trim()}.`,
+    "Ultra detailed, clean composition, beautiful lighting, high contrast, no text, no watermark, no logo, no frame."
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+const json = (status, body, res) => {
+  res.statusCode = status;
+  res.setHeader("Content-Type", "application/json");
+  res.end(JSON.stringify(body));
+};
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return json(405, { success: false, error: "Method not allowed." }, res);
   }
 
   try {
-    const rawBody = req.body || {};
+    const { title = "", description = "", mood = "Dreamy", style = "Cinematic", ratio = "1:1" } = req.body || {};
 
-    const prompt =
-      rawBody.prompt ||
-      rawBody.userPrompt ||
-      rawBody?.body?.prompt ||
-      "";
-
-    const negativePrompt =
-      rawBody.negativePrompt ||
-      rawBody.negative_prompt ||
-      "";
-
-    if (!prompt || !String(prompt).trim()) {
-      return res.status(400).json({
-        error: "Prompt required",
-        debug: {
-          receivedBody: rawBody
-        }
-      });
+    if (!description?.trim()) {
+      return json(400, { success: false, error: "Prompt is required." }, res);
     }
 
-    const model = "ByteDance/SDXL-Lightning";
+    const prompt = buildPrompt({ title, description, mood, style });
+    const provider = inferProvider();
 
-    const hfResponse = await fetch(
-      `https://router.huggingface.co/hf-inference/models/${model}`,
-      {
+    if (provider === "huggingface") {
+      const key = process.env.HUGGINGFACE_API_KEY;
+      
+      const model = process.env.HF_IMAGE_MODEL || "stabilityai/stable-diffusion-xl-base-1.0";
+      const { width, height } = ratioToSize(ratio);
+      const response = await fetch(`https://router.huggingface.co/hf-inference/models/${model}`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${process.env.HF_TOKEN}`,
+          Authorization: `Bearer ${key}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          inputs: String(prompt).trim(),
+          inputs: prompt,
           parameters: {
-            negative_prompt: String(negativePrompt || "")
+            width,
+            height,
+            guidance_scale: 7.5,
+            num_inference_steps: 28
           }
         })
-      }
-    );
-
-    if (!hfResponse.ok) {
-      const errText = await hfResponse.text();
-      console.error("HF error:", errText);
-      return res.status(hfResponse.status).json({
-        error: errText || "Hugging Face API error"
       });
+
+      if (!response.ok) {
+        const text = await response.text();
+        return json(response.status, { success: false, error: text.slice(0, 300) || "Hugging Face image generation failed." }, res);
+      }
+
+      const contentType = response.headers.get("content-type") || "image/png";
+      const bytes = Buffer.from(await response.arrayBuffer());
+      return json(
+        200,
+        {
+          success: true,
+          provider: "huggingface",
+          model,
+          image: `data:${contentType};base64,${bytes.toString("base64")}`
+        },
+        res
+      );
     }
 
-    const arrayBuffer = await hfResponse.arrayBuffer();
-    const base64Image = Buffer.from(arrayBuffer).toString("base64");
+    if (provider === "openai") {
+      const { size } = ratioToSize(ratio);
+      const response = await fetch("https://api.openai.com/v1/images/generations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: "gpt-image-1",
+          prompt,
+          size
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        return json(response.status, { success: false, error: data?.error?.message || "OpenAI image generation failed." }, res);
+      }
+      const imageBase64 = data?.data?.[0]?.b64_json;
+      if (!imageBase64) {
+        return json(500, { success: false, error: "No image returned from OpenAI." }, res);
+      }
+      return json(
+        200,
+        {
+          success: true,
+          provider: "openai",
+          model: "gpt-image-1",
+          image: `data:image/png;base64,${imageBase64}`
+        },
+        res
+      );
+    }
 
-    return res.status(200).json({
-      image: `data:image/png;base64,${base64Image}`
-    });
+    return json(500, { success: false, error: "Add HUGGINGFACE_API_KEY or OPENAI_API_KEY in project environment variables." }, res);
   } catch (error) {
-    console.error("Generate error:", error);
-    return res.status(500).json({
-      error: error.message || "Image generate error"
-    });
+    return json(500, { success: false, error: error?.message || "Something went wrong." }, res);
   }
     }
+  
