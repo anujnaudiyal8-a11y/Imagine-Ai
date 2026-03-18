@@ -1,84 +1,183 @@
-const STYLE_PRESETS = {
-  photoreal: {
-    base: "Ultra realistic, highly detailed, professional photography, natural skin texture, realistic facial proportions, detailed eyes, detailed hair strands, cinematic lighting, soft shadows, depth, sharp focus, premium color grading, high resolution, clean background, realistic materials, natural pose, anatomically correct, lifelike, fine details",
-    negative: "blurry, low quality, low resolution, cartoon, anime, painting, illustration, deformed face, extra fingers, bad hands, malformed eyes, cross-eye, duplicated features, plastic skin, oversmoothed skin, unnatural lighting, distorted body, bad anatomy, watermark, text, logo, cropped, out of frame"
-  },
-  portrait: {
-    base: "Ultra realistic portrait photography, natural skin texture, sharp eyes, realistic face symmetry, detailed hair, studio lighting, premium DSLR look, shallow depth of field, lifelike details, natural tones",
-    negative: "blurry, cartoon, anime, bad face, bad eyes, bad hands, deformed, extra limbs, waxy skin, overprocessed, watermark, text"
-  },
-  product: {
-    base: "Ultra realistic product photography, commercial studio lighting, clean reflections, realistic materials, crisp edges, high detail, premium advertisement style, sharp focus, white or luxury background",
-    negative: "blurry, noisy, distorted shape, bad reflections, extra objects, watermark, text, logo, low quality"
-  },
-  cinematic: {
-    base: "Ultra realistic cinematic scene, dramatic but natural lighting, high detail, realistic textures, volumetric light, film still quality, premium composition, lifelike atmosphere, sharp focus",
-    negative: "cartoon, anime, blurry, flat lighting, bad anatomy, distorted objects, watermark, text, low detail"
-  }
-};
+const titleEl = document.getElementById("title");
+const descriptionEl = document.getElementById("description");
+const generateBtn = document.getElementById("generateBtn");
+const downloadBtn = document.getElementById("downloadBtn");
+const statusEl = document.getElementById("status");
+const imageStage = document.getElementById("imageStage");
+const moodTag = document.getElementById("moodTag");
+const styleTag = document.getElementById("styleTag");
+const randomBtn = document.getElementById("randomBtn");
+const clearBtn = document.getElementById("clearBtn");
+const clearHistoryBtn = document.getElementById("clearHistoryBtn");
+const ratioEl = document.getElementById("ratio");
+const nameInputEl = document.getElementById("nameInput");
+const historyEl = document.getElementById("history");
 
-function buildPrompt(userPrompt, style = "photoreal") {
-  const preset = STYLE_PRESETS[style] || STYLE_PRESETS.photoreal;
+let selectedMood = "Dreamy";
+let selectedStyle = "Cinematic";
+let currentImage = "";
 
-  return {
-    prompt: `${preset.base}. ${userPrompt}. Keep it photorealistic and natural. Emphasize realism, correct anatomy, natural skin texture, detailed face, sharp eyes, realistic lighting, premium photography look.`,
-    negativePrompt: preset.negative
-  };
+const randomPrompts = [
+  "A royal white tiger sitting on a futuristic throne inside a crystal palace, cinematic, hyper detailed",
+  "A luxury fashion campaign featuring a model made of glowing liquid glass under studio lights",
+  "A celestial temple floating above pink clouds at sunrise, divine fantasy artwork",
+  "A supercar drifting through neon rain in Tokyo at night, high contrast, dramatic reflections",
+  "An astronaut meditating inside a golden lotus in deep space, surreal and majestic"
+];
+
+function setStatus(message, type = "") {
+  statusEl.textContent = message;
+  statusEl.className = `status ${type}`.trim();
 }
 
-async function generateImage() {
-  const promptInput = document.getElementById("prompt");
-  const imageEl = document.getElementById("result");
-  const styleInput = document.getElementById("style");
+function setSelectableGroup(containerId, onChange) {
+  const container = document.getElementById(containerId);
+  container.querySelectorAll(".chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      container.querySelectorAll(".chip").forEach((chip) => chip.classList.remove("active"));
+      btn.classList.add("active");
+      onChange(btn.dataset.value);
+    });
+  });
+}
 
-  const userPrompt = promptInput ? promptInput.value.trim() : "";
-  const style = styleInput ? styleInput.value : "photoreal";
+setSelectableGroup("moodRow", (value) => {
+  selectedMood = value;
+  moodTag.textContent = value;
+});
 
-  if (!userPrompt) {
-    alert("Prompt likho pehle");
+setSelectableGroup("styleRow", (value) => {
+  selectedStyle = value;
+  styleTag.textContent = value;
+});
+
+document.querySelectorAll("#ideaList .chip").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    descriptionEl.value = btn.textContent.trim();
+    descriptionEl.focus();
+  });
+});
+
+randomBtn.addEventListener("click", () => {
+  descriptionEl.value = randomPrompts[Math.floor(Math.random() * randomPrompts.length)];
+  setStatus("Random idea loaded.");
+});
+
+clearBtn.addEventListener("click", () => {
+  titleEl.value = "";
+  descriptionEl.value = "";
+  nameInputEl.value = "";
+  setStatus("Prompt cleared.");
+});
+
+clearHistoryBtn.addEventListener("click", () => {
+  localStorage.removeItem("imagine-ai-history");
+  renderHistory();
+  setStatus("History cleared.");
+});
+
+generateBtn.addEventListener("click", async () => {
+  const title = titleEl.value.trim();
+  const description = descriptionEl.value.trim();
+
+  if (!description) {
+    setStatus("Please enter a prompt first.", "error");
     return;
   }
 
-  let prompt = userPrompt;
-  let negativePrompt = "";
-
-  if (typeof buildPrompt === "function") {
-    const built = buildPrompt(userPrompt, style);
-    prompt = built.prompt;
-    negativePrompt = built.negativePrompt;
-  }
+  generateBtn.disabled = true;
+  downloadBtn.disabled = true;
+  imageStage.classList.add("empty");
+  imageStage.innerHTML = '<div class="empty-state"><img src="/assets/logo.svg" alt="Loading" class="empty-logo" /><p>Generating your image...</p></div>';
+  setStatus("Generating image...");
 
   try {
     const res = await fetch("/api/generate", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        prompt,
-        userPrompt,
-        negativePrompt,
-        style
+        title,
+        description,
+        mood: selectedMood,
+        style: selectedStyle,
+        ratio: ratioEl.value
       })
     });
-
     const data = await res.json();
-    console.log("API response:", data);
-
-    if (!res.ok) {
-      alert(data.error || "Generate failed");
-      return;
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || "Image generation failed.");
     }
 
-    if (data.image) {
-      imageEl.src = data.image;
-    } else {
-      alert("Image generate nahi hui");
-    }
-  } catch (err) {
-    console.error(err);
-    alert("Error aaya");
+    currentImage = data.image;
+    imageStage.classList.remove("empty");
+    imageStage.innerHTML = `<img src="${data.image}" alt="Generated by Imagine AI" />`;
+    downloadBtn.disabled = false;
+    saveHistory({ image: data.image, prompt: description, title });
+    setStatus(`Done. Generated with ${data.provider || "AI"}.`, "success");
+  } catch (error) {
+    currentImage = "";
+    imageStage.classList.add("empty");
+    imageStage.innerHTML = '<div class="empty-state"><img src="/assets/logo.svg" alt="Imagine AI" class="empty-logo" /><p>Your image will appear here after generation.</p></div>';
+    setStatus(error.message || "Something went wrong.", "error");
+  } finally {
+    generateBtn.disabled = false;
   }
+});
+
+downloadBtn.addEventListener("click", () => {
+  if (!currentImage) return;
+  const link = document.createElement("a");
+  const safeName = (titleEl.value || "imagine-ai-image").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+  link.href = currentImage;
+  link.download = `${safeName}.png`;
+  link.click();
+  setStatus("Download started.", "success");
+});
+
+function saveHistory(item) {
+  const existing = JSON.parse(localStorage.getItem("imagine-ai-history") || "[]");
+  const next = [item, ...existing].slice(0, 6);
+  localStorage.setItem("imagine-ai-history", JSON.stringify(next));
+  renderHistory();
 }
 
-window.generateImage = generateImage;
+function renderHistory() {
+  const items = JSON.parse(localStorage.getItem("imagine-ai-history") || "[]");
+  if (!items.length) {
+    historyEl.innerHTML = '<p class="status">No generations yet.</p>';
+    return;
+  }
+
+  historyEl.innerHTML = items
+    .map(
+      (item, index) => `
+        <div class="history-item">
+          <img src="${item.image}" alt="History ${index + 1}" />
+          <button class="tiny-btn use-history" data-index="${index}" type="button">Use again</button>
+        </div>
+      `
+    )
+    .join("");
+
+  historyEl.querySelectorAll(".use-history").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const selected = items[Number(btn.dataset.index)];
+      currentImage = selected.image;
+      imageStage.classList.remove("empty");
+      imageStage.innerHTML = `<img src="${selected.image}" alt="Generated by Imagine AI" />`;
+      descriptionEl.value = selected.prompt || "";
+      titleEl.value = selected.title || "";
+      downloadBtn.disabled = false;
+      setStatus("Loaded from history.");
+    });
+  });
+}
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+}
+
+renderHistory();
+
+
+  
